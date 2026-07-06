@@ -5,91 +5,210 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Diabetes — {{ patient }}</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
-    :root { --bg:#0f1420; --card:#1a2130; --ink:#e8edf5; --muted:#8b97ab; --accent:#4ea1ff; --good:#3ddc97; --warn:#ffb454; --bad:#ff6b6b; }
+    /* 60/30/10 palette:
+       60% dominant  -> deep indigo neutrals (bg + surfaces)
+       30% secondary -> teal (structure, glicemia)
+       10% accent    -> coral + amber (humalog, macros, key numbers) */
+    :root {
+      --bg-0:#100e20; --bg-1:#171334; --surface:#201a42; --surface-2:#292251;
+      --line:#332b63; --ink:#efedfb; --muted:#a49dd0;
+      --teal:#2dd4bf; --teal-soft:rgba(45,212,191,.14);
+      --coral:#fb6f92; --coral-soft:rgba(251,111,146,.16);
+      --amber:#f4a83a; --amber-soft:rgba(244,168,58,.16);
+      --violet:#a78bfa; --violet-soft:rgba(167,139,250,.16);
+    }
     * { box-sizing:border-box; }
-    body { margin:0; font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--ink); }
-    header { padding:20px 24px; border-bottom:1px solid #232c3d; }
-    header h1 { margin:0; font-size:20px; }
-    header .sub { color:var(--muted); font-size:13px; }
-    main { padding:24px; max-width:1100px; margin:0 auto; display:grid; gap:20px; }
-    .cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:14px; }
-    .card { background:var(--card); border:1px solid #232c3d; border-radius:12px; padding:16px; }
-    .card .k { color:var(--muted); font-size:12px; text-transform:uppercase; letter-spacing:.04em; }
-    .card .v { font-size:26px; font-weight:600; margin-top:4px; }
-    .chart-wrap { background:var(--card); border:1px solid #232c3d; border-radius:12px; padding:16px; }
-    table { width:100%; border-collapse:collapse; font-size:14px; }
-    th, td { text-align:left; padding:8px 10px; border-bottom:1px solid #232c3d; }
-    th { color:var(--muted); font-weight:500; }
-    .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
-    @media (max-width:720px){ .grid2 { grid-template-columns:1fr; } }
+    body {
+      margin:0; color:var(--ink);
+      font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+      background:
+        radial-gradient(1200px 600px at 15% -10%, #2a1f57 0%, transparent 55%),
+        radial-gradient(900px 500px at 95% 0%, #143f43 0%, transparent 50%),
+        linear-gradient(180deg, var(--bg-1) 0%, var(--bg-0) 100%);
+      background-attachment:fixed; min-height:100vh;
+    }
+    header {
+      padding:26px 28px 22px; border-bottom:1px solid var(--line);
+      display:flex; align-items:center; gap:16px;
+    }
+    .logo { width:44px; height:44px; border-radius:13px; flex:none;
+      background:linear-gradient(135deg,var(--teal),var(--violet));
+      display:grid; place-items:center; font-size:22px;
+      box-shadow:0 6px 20px rgba(45,212,191,.28); }
+    header h1 { margin:0; font-family:"Space Grotesk",sans-serif; font-size:22px; letter-spacing:-.01em; }
+    header .sub { color:var(--muted); font-size:13px; margin-top:2px; }
+    main { padding:24px; max-width:1120px; margin:0 auto; display:grid; gap:22px; }
+
+    .cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:14px; }
+    .card { background:linear-gradient(180deg,var(--surface),var(--surface-2));
+      border:1px solid var(--line); border-radius:16px; padding:16px 18px;
+      position:relative; overflow:hidden; }
+    .card::before { content:""; position:absolute; left:0; top:0; bottom:0; width:4px; background:var(--teal); }
+    .card.accent::before { background:var(--coral); }
+    .card.amber::before  { background:var(--amber); }
+    .card .k { color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:.06em; }
+    .card .v { font-family:"Space Grotesk",sans-serif; font-size:28px; font-weight:600; margin-top:6px; line-height:1; }
+    .card .u { color:var(--muted); font-size:13px; font-weight:500; }
+
+    .panel { background:linear-gradient(180deg,var(--surface),rgba(41,34,81,.6));
+      border:1px solid var(--line); border-radius:18px; padding:18px 20px; }
+    .panel h3 { margin:0 0 4px; font-family:"Space Grotesk",sans-serif; font-size:16px; display:flex; align-items:center; gap:9px; }
+    .panel .hint { color:var(--muted); font-size:12px; margin:0 0 14px; }
+    .dot { width:9px; height:9px; border-radius:50%; display:inline-block; }
+    .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:22px; }
+    @media (max-width:800px){ .grid2 { grid-template-columns:1fr; } }
+
+    table { width:100%; border-collapse:collapse; font-size:13.5px; }
+    th, td { text-align:left; padding:9px 10px; border-bottom:1px solid var(--line); }
+    th { color:var(--muted); font-weight:500; font-size:12px; text-transform:uppercase; letter-spacing:.04em; }
+    td .tag { font-size:11px; padding:2px 8px; border-radius:999px; background:var(--teal-soft); color:var(--teal); }
+    .tag.coral { background:var(--coral-soft); color:var(--coral); }
+    .tag.amber { background:var(--amber-soft); color:var(--amber); }
+    .tag.violet{ background:var(--violet-soft); color:var(--violet); }
   </style>
 </head>
 <body>
   <header>
-    <h1>Diabetes — {{ patient }}</h1>
-    <div class="sub">Registros via Telegram · atualiza a cada carregamento</div>
+    <div class="logo">🩸</div>
+    <div>
+      <h1>{{ patient }}</h1>
+      <div class="sub">Registros via Telegram · Humalog, glicemia, refeições, Basaglar & colírio</div>
+    </div>
   </header>
+
   <main>
     <div class="cards" id="cards"></div>
-    <div class="chart-wrap"><canvas id="glucoseChart" height="90"></canvas></div>
+
+    <div class="panel">
+      <h3><span class="dot" style="background:var(--teal)"></span> Glicemia</h3>
+      <p class="hint">mg/dL ao longo do tempo — faixa alvo 70–180. Pontos coral = baixa, âmbar = alta.</p>
+      <canvas id="glucoseChart" height="92"></canvas>
+    </div>
+
+    <div class="panel">
+      <h3><span class="dot" style="background:var(--coral)"></span> Humalog (insulina rápida)</h3>
+      <p class="hint">Unidades por aplicação — irregular ao longo do dia (refeições e correções).</p>
+      <canvas id="humalogChart" height="92"></canvas>
+    </div>
+
     <div class="grid2">
-      <div class="chart-wrap">
-        <h3 style="margin-top:0">Últimas doses Humalog</h3>
-        <table id="humalogTable"><thead><tr><th>Quando</th><th>Unidades</th><th>Refeição</th></tr></thead><tbody></tbody></table>
+      <div class="panel">
+        <h3><span class="dot" style="background:var(--amber)"></span> Refeições — carboidratos & proteínas</h3>
+        <p class="hint">Eventos separados da insulina. Gramas por refeição.</p>
+        <canvas id="mealsChart" height="150"></canvas>
       </div>
-      <div class="chart-wrap">
-        <h3 style="margin-top:0">Últimos eventos</h3>
+      <div class="panel">
+        <h3>Últimas aplicações de Humalog</h3>
+        <p class="hint">&nbsp;</p>
+        <table id="humalogTable"><thead><tr><th>Quando</th><th>Unidades</th><th>Motivo</th></tr></thead><tbody></tbody></table>
+      </div>
+    </div>
+
+    <div class="grid2">
+      <div class="panel">
+        <h3>Refeições recentes</h3>
+        <p class="hint">&nbsp;</p>
+        <table id="mealsTable"><thead><tr><th>Quando</th><th>Refeição</th><th>Carbs</th><th>Prot.</th></tr></thead><tbody></tbody></table>
+      </div>
+      <div class="panel">
+        <h3>Outros eventos</h3>
+        <p class="hint">&nbsp;</p>
         <table id="eventsTable"><thead><tr><th>Quando</th><th>Tipo</th><th>Detalhe</th></tr></thead><tbody></tbody></table>
       </div>
     </div>
   </main>
 
   <script>
+    const C = getComputedStyle(document.documentElement);
+    const col = (n) => C.getPropertyValue(n).trim();
+    const TEAL=col('--teal'), CORAL=col('--coral'), AMBER=col('--amber'), VIOLET=col('--violet'),
+          INK=col('--ink'), MUTED=col('--muted'), LINE=col('--line');
     const fmt = (iso) => new Date(iso).toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' });
-    const MEAL = { cafe:'Café', almoco:'Almoço', janta:'Janta', lanche:'Lanche', correcao:'Correção' };
+    const MEAL = { cafe:'Café', almoco:'Almoço', janta:'Janta', lanche:'Lanche' };
+    const REASON = { refeicao:'Refeição', correcao:'Correção', outro:'Outro' };
+    const sameDay = (iso,ref) => new Date(iso).toDateString() === new Date(ref).toDateString();
+    const baseScales = () => ({
+      x:{ ticks:{color:MUTED,maxRotation:0,autoSkip:true,maxTicksLimit:8}, grid:{color:LINE} },
+      y:{ ticks:{color:MUTED}, grid:{color:LINE}, beginAtZero:true }
+    });
+    Chart.defaults.font.family = 'Inter, sans-serif';
+    Chart.defaults.color = MUTED;
 
     async function load() {
       const d = await (await fetch('/api/data')).json();
+      const now = d.glucose[0]?.measured_at || new Date().toISOString();
 
-      // KPI cards
+      // ---- KPI cards ----
       const lastGl = d.glucose[0];
-      const todayHumalog = d.humalog.filter(x => sameDay(x.taken_at)).reduce((s,x)=>s+Number(x.units||0),0);
-      const lastBasal = d.basal[0];
+      const humToday = d.humalog.filter(x=>sameDay(x.taken_at, now)).reduce((s,x)=>s+Number(x.units||0),0);
+      const carbsToday = d.meals.filter(x=>sameDay(x.eaten_at, now)).reduce((s,x)=>s+Number(x.carbs_g||0),0);
+      const protToday  = d.meals.filter(x=>sameDay(x.eaten_at, now)).reduce((s,x)=>s+Number(x.protein_g||0),0);
       const cards = [
-        ['Última glicemia', lastGl ? `${lastGl.mg_dl} mg/dL` : '—'],
-        ['Humalog hoje', `${todayHumalog}u`],
-        ['Basaglar', lastBasal ? `${fmt(lastBasal.taken_at)}` : '—'],
-        ['Colírio (último)', d.colirio[0] ? fmt(d.colirio[0].used_at) : '—'],
+        ['', 'Última glicemia', lastGl ? `${lastGl.mg_dl}` : '—', 'mg/dL'],
+        ['accent', 'Humalog hoje', `${humToday}`, 'unidades'],
+        ['amber', 'Carboidratos hoje', `${carbsToday}`, `g · ${protToday}g prot.`],
+        ['', 'Basaglar', d.basal[0] ? fmt(d.basal[0].taken_at) : '—', 'último'],
+        ['', 'Colírio', d.colirio[0] ? fmt(d.colirio[0].used_at) : '—', 'último'],
       ];
-      document.getElementById('cards').innerHTML = cards.map(([k,v]) =>
-        `<div class="card"><div class="k">${k}</div><div class="v">${v}</div></div>`).join('');
+      document.getElementById('cards').innerHTML = cards.map(([cls,k,v,u]) =>
+        `<div class="card ${cls}"><div class="k">${k}</div><div class="v">${v}</div><div class="u">${u}</div></div>`).join('');
 
-      // glucose chart (chronological)
+      // ---- Glicemia (line, colored points by range) ----
       const gl = [...d.glucose].reverse();
+      const ptColor = (v)=> v<70?CORAL : v>180?AMBER : TEAL;
       new Chart(document.getElementById('glucoseChart'), {
         type:'line',
         data:{ labels: gl.map(x=>fmt(x.measured_at)),
-          datasets:[{ label:'Glicemia (mg/dL)', data: gl.map(x=>x.mg_dl),
-            borderColor:'#4ea1ff', backgroundColor:'rgba(78,161,255,.15)', tension:.3, fill:true, pointRadius:3 }]},
-        options:{ plugins:{legend:{labels:{color:'#e8edf5'}}},
-          scales:{ x:{ticks:{color:'#8b97ab'},grid:{color:'#232c3d'}}, y:{ticks:{color:'#8b97ab'},grid:{color:'#232c3d'},suggestedMin:60,suggestedMax:260} } }
+          datasets:[{ label:'Glicemia', data: gl.map(x=>x.mg_dl),
+            borderColor:TEAL, backgroundColor:col('--teal-soft'), tension:.35, fill:true,
+            pointRadius:4, pointBackgroundColor: gl.map(x=>ptColor(x.mg_dl)), pointBorderColor:'transparent' }]},
+        options:{ plugins:{legend:{display:false}}, scales:{...baseScales(),
+          y:{ ticks:{color:MUTED}, grid:{color:LINE}, suggestedMin:60, suggestedMax:260 } } }
       });
 
-      // humalog table
-      document.querySelector('#humalogTable tbody').innerHTML = d.humalog.slice(0,15).map(x =>
-        `<tr><td>${fmt(x.taken_at)}</td><td>${x.units}u</td><td>${MEAL[x.meal_tag]||x.meal_tag||'—'}</td></tr>`).join('');
+      // ---- Humalog (bars per dose — erratic) ----
+      const hu = [...d.humalog].reverse();
+      new Chart(document.getElementById('humalogChart'), {
+        type:'bar',
+        data:{ labels: hu.map(x=>fmt(x.taken_at)),
+          datasets:[{ label:'Unidades', data: hu.map(x=>Number(x.units)),
+            backgroundColor:col('--coral-soft'), borderColor:CORAL, borderWidth:1.5, borderRadius:5,
+            maxBarThickness:26 }]},
+        options:{ plugins:{legend:{display:false},
+          tooltip:{callbacks:{afterLabel:(c)=>REASON[hu[c.dataIndex].reason]||''}}},
+          scales:baseScales() }
+      });
 
-      // combined events
+      // ---- Meals (grouped bars carbs vs protein) ----
+      const me = [...d.meals].reverse();
+      new Chart(document.getElementById('mealsChart'), {
+        type:'bar',
+        data:{ labels: me.map(x=>fmt(x.eaten_at)),
+          datasets:[
+            { label:'Carboidratos (g)', data: me.map(x=>x.carbs_g||0), backgroundColor:AMBER, borderRadius:4, maxBarThickness:18 },
+            { label:'Proteínas (g)',   data: me.map(x=>x.protein_g||0), backgroundColor:VIOLET, borderRadius:4, maxBarThickness:18 },
+          ]},
+        options:{ plugins:{legend:{labels:{color:INK,boxWidth:12,usePointStyle:true}}}, scales:baseScales() }
+      });
+
+      // ---- Tables ----
+      document.querySelector('#humalogTable tbody').innerHTML = d.humalog.slice(0,12).map(x =>
+        `<tr><td>${fmt(x.taken_at)}</td><td><b>${x.units}u</b></td><td><span class="tag coral">${REASON[x.reason]||'—'}</span></td></tr>`).join('');
+
+      document.querySelector('#mealsTable tbody').innerHTML = d.meals.slice(0,12).map(x =>
+        `<tr><td>${fmt(x.eaten_at)}</td><td><span class="tag amber">${MEAL[x.meal_tag]||x.meal_tag||'—'}</span></td><td>${x.carbs_g??'—'}g</td><td>${x.protein_g??'—'}g</td></tr>`).join('');
+
       const events = [
-        ...d.basal.map(x=>({t:x.taken_at, k:'Basaglar', v:x.status==='taken'?'Tomada':'Pulada'})),
-        ...d.colirio.map(x=>({t:x.used_at, k:'Colírio', v:x.product||''})),
-        ...d.glucose.map(x=>({t:x.measured_at, k:'Glicemia', v:`${x.mg_dl} mg/dL`})),
-      ].sort((a,b)=> new Date(b.t)-new Date(a.t)).slice(0,15);
+        ...d.basal.map(x=>({t:x.taken_at, k:'Basaglar', v:x.status==='taken'?`Tomada${x.units?' · '+x.units+'u':''}`:'Pulada', c:'violet'})),
+        ...d.colirio.map(x=>({t:x.used_at, k:'Colírio', v:x.product||'', c:'teal'})),
+      ].sort((a,b)=> new Date(b.t)-new Date(a.t)).slice(0,12);
       document.querySelector('#eventsTable tbody').innerHTML = events.map(e =>
-        `<tr><td>${fmt(e.t)}</td><td>${e.k}</td><td>${e.v}</td></tr>`).join('');
+        `<tr><td>${fmt(e.t)}</td><td><span class="tag ${e.c}">${e.k}</span></td><td>${e.v}</td></tr>`).join('');
     }
-    function sameDay(iso){ const a=new Date(iso), b=new Date(); return a.toDateString()===b.toDateString(); }
     load();
   </script>
 </body>

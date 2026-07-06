@@ -18,6 +18,10 @@ ALLOWED_TELEGRAM_ID = int(os.environ["ALLOWED_TELEGRAM_ID"]) if os.environ.get("
 # on Railway the internal DATABASE_URL is injected automatically.
 DATABASE_URL = os.environ.get("DATABASE_URL", "")
 
+# Gemini — parses free-text Telegram messages into structured events.
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
+
 # Supabase is reserved for SSO/login only (added later); no app data here.
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
 

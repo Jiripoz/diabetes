@@ -57,12 +57,27 @@ def _patient_id() -> int:
     return get_or_create_patient()["id"]
 
 
-def log_humalog(units: float, meal_tag: str | None = None, carbs_g: int | None = None) -> dict:
+def log_humalog(units: float, reason: str | None = None, note: str | None = None) -> dict:
     with cursor() as cur:
         cur.execute(
-            "insert into humalog_doses (patient_id, units, meal_tag, carbs_g) "
+            "insert into humalog_doses (patient_id, units, reason, note) "
             "values (%s, %s, %s, %s) returning *",
-            (_patient_id(), units, meal_tag, carbs_g),
+            (_patient_id(), units, reason, note),
+        )
+        return cur.fetchone()
+
+
+def log_meal(
+    carbs_g: int | None = None,
+    protein_g: int | None = None,
+    meal_tag: str | None = None,
+    description: str | None = None,
+) -> dict:
+    with cursor() as cur:
+        cur.execute(
+            "insert into meals (patient_id, carbs_g, protein_g, meal_tag, description) "
+            "values (%s, %s, %s, %s, %s) returning *",
+            (_patient_id(), carbs_g, protein_g, meal_tag, description),
         )
         return cur.fetchone()
 

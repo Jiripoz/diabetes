@@ -44,6 +44,7 @@ def data(_: str = Depends(require_auth)) -> dict:
     # FastAPI encodes datetime -> ISO string and Decimal -> number automatically.
     return {
         "humalog": db.recent("humalog_doses", "taken_at"),
+        "meals": db.recent("meals", "eaten_at"),
         "basal": db.recent("basal_doses", "taken_at"),
         "glucose": db.recent("glucose_readings", "measured_at"),
         "colirio": db.recent("colirio_uses", "used_at"),
