@@ -222,8 +222,8 @@
       const gl=[...d.glucose].reverse();
       new Chart(document.getElementById('glucoseChart'),{ type:'line', plugins:[band],
         data:{labels:gl.map(x=>fmt(x.measured_at)),datasets:[{data:gl.map(x=>x.mg_dl),
-          borderColor:MINT, borderWidth:2, tension:.4, fill:false,
-          pointRadius:3.5, pointBackgroundColor:gl.map(x=>rangeColor(x.mg_dl)), pointBorderColor:'transparent'}]},
+          borderColor:MINT, borderWidth:2.5, tension:.4, fill:false,
+          pointRadius:3, pointHoverRadius:5, pointBackgroundColor:gl.map(x=>rangeColor(x.mg_dl)), pointBorderColor:'transparent'}]},
         options:{maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{...baseScales(),
           y:{ticks:{color:MUTED},grid:{color:LINE},suggestedMin:50,suggestedMax:260}}}});
 
@@ -231,7 +231,7 @@
       const hu=[...d.humalog].reverse();
       new Chart(document.getElementById('humalogChart'),{type:'bar', plugins:[dayBreaks(hu.map(x=>x.taken_at))],
         data:{labels:hu.map(x=>hm(x.taken_at)),datasets:[{data:hu.map(x=>Number(x.units)),
-          backgroundColor:col('--sky-soft'),borderColor:SKY,borderWidth:1.5,borderRadius:5,maxBarThickness:22}]},
+          backgroundColor:SKY,borderRadius:4,maxBarThickness:20}]},
         options:{maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{
           title:(it)=>fmt(hu[it[0].dataIndex].taken_at),afterLabel:(c)=>REASON[hu[c.dataIndex].reason]||''}}},
           scales:baseScales()}});
@@ -240,8 +240,8 @@
       const me=[...d.meals].reverse();
       new Chart(document.getElementById('mealsChart'),{type:'bar', plugins:[dayBreaks(me.map(x=>x.eaten_at))],
         data:{labels:me.map(x=>hm(x.eaten_at)),datasets:[
-          {label:'Carbs (g)',data:me.map(x=>x.carbs_g||0),backgroundColor:AMBER,borderRadius:4,maxBarThickness:15},
-          {label:'Proteína (g)',data:me.map(x=>x.protein_g||0),backgroundColor:VIOLET,borderRadius:4,maxBarThickness:15}]},
+          {label:'Carbs (g)',data:me.map(x=>x.carbs_g||0),backgroundColor:AMBER,borderRadius:3,maxBarThickness:14},
+          {label:'Proteína (g)',data:me.map(x=>x.protein_g||0),backgroundColor:VIOLET,borderRadius:3,maxBarThickness:14}]},
         options:{maintainAspectRatio:false,plugins:{legend:{labels:{color:INK,boxWidth:10,usePointStyle:true}},
           tooltip:{callbacks:{title:(it)=>fmt(me[it[0].dataIndex].eaten_at)}}},scales:baseScales()}});
 
