@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#0F141A" />
   <title>Glaubot · painel</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230F141A'/%3E%3Crect x='7' y='16' width='4' height='9' rx='1.5' fill='%2356C2FF'/%3E%3Crect x='14' y='11' width='4' height='14' rx='1.5' fill='%233DDC84'/%3E%3Crect x='21' y='7' width='4' height='18' rx='1.5' fill='%23FFB020'/%3E%3C/svg%3E">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -65,6 +66,7 @@
     .card h3 { margin:0 0 3px; font-family:"Space Grotesk",sans-serif; font-size:14.5px; display:flex; align-items:center; gap:8px; }
     .card .hint { color:var(--muted); font-size:11.5px; margin:0 0 12px; }
     .dot { width:9px; height:9px; border-radius:50%; display:inline-block; }
+    .chartbox { position:relative; width:100%; height:200px; }
 
     table { width:100%; border-collapse:collapse; font-size:13px; }
     th,td { text-align:left; padding:8px 6px; border-bottom:1px solid var(--line); }
@@ -80,7 +82,6 @@
   <div class="wrap">
     <div class="top">
       <div class="who">
-        <div class="badge">🩸</div>
         <div>
           <div class="role">painel · {{ patient }}</div>
           <h1 id="today">—</h1>
@@ -116,21 +117,21 @@
     <div class="card">
       <h3><span class="dot" style="background:var(--mint)"></span> Glicemia</h3>
       <p class="hint">Faixa alvo 70–180 sombreada · pontos coral=baixa, âmbar=alta.</p>
-      <canvas id="glucoseChart" height="150"></canvas>
+      <div class="chartbox"><canvas id="glucoseChart"></canvas></div>
     </div>
 
     <!-- Humalog (erratic bars) -->
     <div class="card">
       <h3><span class="dot" style="background:var(--sky)"></span> Humalog</h3>
       <p class="hint">Unidades por aplicação — irregular ao longo do dia.</p>
-      <canvas id="humalogChart" height="140"></canvas>
+      <div class="chartbox"><canvas id="humalogChart"></canvas></div>
     </div>
 
     <!-- Meals macros -->
     <div class="card">
       <h3><span class="dot" style="background:var(--amber)"></span> Refeições</h3>
       <p class="hint">Carboidratos e proteínas por refeição (g).</p>
-      <canvas id="mealsChart" height="150"></canvas>
+      <div class="chartbox"><canvas id="mealsChart"></canvas></div>
     </div>
 
     <!-- recent log -->
@@ -166,6 +167,21 @@
     }};
     const baseScales=()=>({ x:{ticks:{color:MUTED,maxRotation:0,autoSkip:true,maxTicksLimit:6},grid:{display:false}},
       y:{ticks:{color:MUTED},grid:{color:LINE},beginAtZero:true} });
+
+    // vertical separator + date label wherever the day changes (category axis)
+    function dayBreaks(isos){ return { id:'dayBreaks', afterDatasetsDraw(c){
+      const {ctx, chartArea:{top,bottom}, scales:{x}} = c; if(!x) return;
+      ctx.save();
+      for(let i=1;i<isos.length;i++){
+        if(new Date(isos[i-1]).toDateString()===new Date(isos[i]).toDateString()) continue;
+        const xp=(x.getPixelForValue(i-1)+x.getPixelForValue(i))/2;
+        ctx.strokeStyle='rgba(132,151,167,.45)'; ctx.setLineDash([2,4]); ctx.lineWidth=1;
+        ctx.beginPath(); ctx.moveTo(xp,top); ctx.lineTo(xp,bottom); ctx.stroke();
+        ctx.setLineDash([]); ctx.fillStyle=MUTED; ctx.font='600 10px "Hanken Grotesk", sans-serif'; ctx.textAlign='left';
+        ctx.fillText(new Date(isos[i]).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'}), xp+4, top+9);
+      }
+      ctx.restore();
+    }}; }
 
     async function load(){
       const d = await (await fetch('/api/data')).json();
@@ -208,24 +224,26 @@
         data:{labels:gl.map(x=>fmt(x.measured_at)),datasets:[{data:gl.map(x=>x.mg_dl),
           borderColor:MINT, borderWidth:2, tension:.4, fill:false,
           pointRadius:3.5, pointBackgroundColor:gl.map(x=>rangeColor(x.mg_dl)), pointBorderColor:'transparent'}]},
-        options:{plugins:{legend:{display:false}},scales:{...baseScales(),
+        options:{maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{...baseScales(),
           y:{ticks:{color:MUTED},grid:{color:LINE},suggestedMin:50,suggestedMax:260}}}});
 
       // humalog bars
       const hu=[...d.humalog].reverse();
-      new Chart(document.getElementById('humalogChart'),{type:'bar',
-        data:{labels:hu.map(x=>fmt(x.taken_at)),datasets:[{data:hu.map(x=>Number(x.units)),
+      new Chart(document.getElementById('humalogChart'),{type:'bar', plugins:[dayBreaks(hu.map(x=>x.taken_at))],
+        data:{labels:hu.map(x=>hm(x.taken_at)),datasets:[{data:hu.map(x=>Number(x.units)),
           backgroundColor:col('--sky-soft'),borderColor:SKY,borderWidth:1.5,borderRadius:5,maxBarThickness:22}]},
-        options:{plugins:{legend:{display:false},tooltip:{callbacks:{afterLabel:(c)=>REASON[hu[c.dataIndex].reason]||''}}},
+        options:{maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{
+          title:(it)=>fmt(hu[it[0].dataIndex].taken_at),afterLabel:(c)=>REASON[hu[c.dataIndex].reason]||''}}},
           scales:baseScales()}});
 
       // meals macros
       const me=[...d.meals].reverse();
-      new Chart(document.getElementById('mealsChart'),{type:'bar',
-        data:{labels:me.map(x=>fmt(x.eaten_at)),datasets:[
+      new Chart(document.getElementById('mealsChart'),{type:'bar', plugins:[dayBreaks(me.map(x=>x.eaten_at))],
+        data:{labels:me.map(x=>hm(x.eaten_at)),datasets:[
           {label:'Carbs (g)',data:me.map(x=>x.carbs_g||0),backgroundColor:AMBER,borderRadius:4,maxBarThickness:15},
           {label:'Proteína (g)',data:me.map(x=>x.protein_g||0),backgroundColor:VIOLET,borderRadius:4,maxBarThickness:15}]},
-        options:{plugins:{legend:{labels:{color:INK,boxWidth:10,usePointStyle:true}}},scales:baseScales()}});
+        options:{maintainAspectRatio:false,plugins:{legend:{labels:{color:INK,boxWidth:10,usePointStyle:true}},
+          tooltip:{callbacks:{title:(it)=>fmt(me[it[0].dataIndex].eaten_at)}}},scales:baseScales()}});
 
       // recent unified log
       const ev=[
