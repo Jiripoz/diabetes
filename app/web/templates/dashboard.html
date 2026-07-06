@@ -64,7 +64,12 @@
     .stat.sky .v{ color:var(--sky);} .stat.amber .v{ color:var(--amber);} .stat.violet .v{ color:var(--violet);}
 
     .card h3 { margin:0 0 3px; font-family:"Space Grotesk",sans-serif; font-size:14.5px; display:flex; align-items:center; gap:8px; }
-    .card .hint { color:var(--muted); font-size:11.5px; margin:0 0 12px; }
+    .chead { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+    .seg { display:inline-flex; background:var(--bg-1); border:1px solid var(--line); border-radius:999px; padding:2px; }
+    .seg button { border:0; background:transparent; color:var(--muted); font:inherit; font-size:11.5px; font-weight:600;
+      padding:5px 13px; border-radius:999px; cursor:pointer; transition:background .15s,color .15s; }
+    .seg button.on { background:var(--surface-2); color:var(--ink); box-shadow:0 1px 0 rgba(255,255,255,.04) inset; }
+    .card .hint { color:var(--muted); font-size:11.5px; margin:7px 0 12px; }
     .dot { width:9px; height:9px; border-radius:50%; display:inline-block; }
     .chartbox { position:relative; width:100%; height:200px; }
 
@@ -120,17 +125,23 @@
       <div class="chartbox"><canvas id="glucoseChart"></canvas></div>
     </div>
 
-    <!-- Humalog (erratic bars) -->
+    <!-- Humalog -->
     <div class="card">
-      <h3><span class="dot" style="background:var(--sky)"></span> Humalog</h3>
-      <p class="hint">Unidades por aplicação — irregular ao longo do dia.</p>
+      <div class="chead">
+        <h3><span class="dot" style="background:var(--sky)"></span> Humalog</h3>
+        <div class="seg" id="humSeg"><button data-m="day" class="on">Dia</button><button data-m="week">Semana</button></div>
+      </div>
+      <p class="hint" id="humHint">—</p>
       <div class="chartbox"><canvas id="humalogChart"></canvas></div>
     </div>
 
     <!-- Meals macros -->
     <div class="card">
-      <h3><span class="dot" style="background:var(--amber)"></span> Refeições</h3>
-      <p class="hint">Carboidratos e proteínas por refeição (g).</p>
+      <div class="chead">
+        <h3><span class="dot" style="background:var(--amber)"></span> Refeições</h3>
+        <div class="seg" id="mealSeg"><button data-m="day" class="on">Dia</button><button data-m="week">Semana</button></div>
+      </div>
+      <p class="hint" id="mealHint">—</p>
       <div class="chartbox"><canvas id="mealsChart"></canvas></div>
     </div>
 
@@ -228,23 +239,70 @@
         options:{maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{...baseScales(),
           y:{ticks:{color:MUTED},grid:{color:LINE},suggestedMin:50,suggestedMax:260}}}});
 
-      // humalog bars
-      const hu=[...d.humalog].reverse();
-      new Chart(document.getElementById('humalogChart'),{type:'bar', plugins:[dayBreaks(hu.map(x=>x.taken_at))],
-        data:{labels:hu.map(x=>hm(x.taken_at)),datasets:[{data:hu.map(x=>Number(x.units)),
-          backgroundColor:SKY,borderRadius:4,maxBarThickness:20}]},
-        options:{maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{
-          title:(it)=>fmt(hu[it[0].dataIndex].taken_at),afterLabel:(c)=>REASON[hu[c.dataIndex].reason]||''}}},
-          scales:baseScales()}});
+      // ---- Humalog & Refeições: Dia (hoje, evento a evento) / Semana (total por dia) ----
+      const todayKey = new Date().toDateString();
+      const dayKey = (iso)=>new Date(iso).toDateString();
+      const last7 = ()=>{ const days=[], base=new Date(); base.setHours(0,0,0,0);
+        for(let i=6;i>=0;i--){ const dd=new Date(base); dd.setDate(base.getDate()-i); days.push(dd); } return days; };
+      const wlabel = (dd)=> dd.toDateString()===todayKey ? 'Hoje'
+        : dd.toLocaleDateString('pt-BR',{weekday:'short',day:'2-digit'}).replace('.','');
+      const sumBy = (arr,keyIso,field,dd)=> arr.filter(x=>dayKey(x[keyIso])===dd.toDateString())
+        .reduce((s,x)=>s+Number(x[field]||0),0);
 
-      // meals macros
-      const me=[...d.meals].reverse();
-      new Chart(document.getElementById('mealsChart'),{type:'bar', plugins:[dayBreaks(me.map(x=>x.eaten_at))],
-        data:{labels:me.map(x=>hm(x.eaten_at)),datasets:[
-          {label:'Carbs (g)',data:me.map(x=>x.carbs_g||0),backgroundColor:AMBER,borderRadius:3,maxBarThickness:14},
-          {label:'Proteína (g)',data:me.map(x=>x.protein_g||0),backgroundColor:VIOLET,borderRadius:3,maxBarThickness:14}]},
-        options:{maintainAspectRatio:false,plugins:{legend:{labels:{color:INK,boxWidth:10,usePointStyle:true}},
-          tooltip:{callbacks:{title:(it)=>fmt(me[it[0].dataIndex].eaten_at)}}},scales:baseScales()}});
+      let humChart, mealChart;
+      const humCv=document.getElementById('humalogChart'), mealCv=document.getElementById('mealsChart');
+
+      function renderHum(mode){
+        if(humChart) humChart.destroy();
+        let labels,data,tips=null;
+        if(mode==='week'){
+          const days=last7(); labels=days.map(wlabel);
+          data=days.map(dd=>sumBy(d.humalog,'taken_at','units',dd));
+          document.getElementById('humHint').textContent='Total de unidades por dia · últimos 7 dias.';
+        } else {
+          const it=d.humalog.filter(x=>dayKey(x.taken_at)===todayKey)
+            .sort((a,b)=>new Date(a.taken_at)-new Date(b.taken_at));
+          labels=it.map(x=>hm(x.taken_at)); data=it.map(x=>Number(x.units)); tips=it;
+          document.getElementById('humHint').textContent = it.length?'Aplicações de hoje.':'Nenhuma aplicação hoje ainda.';
+        }
+        humChart=new Chart(humCv,{type:'bar',
+          data:{labels,datasets:[{data,backgroundColor:SKY,borderRadius:4,maxBarThickness:mode==='week'?34:22}]},
+          options:{maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{
+            label:(c)=>`${c.parsed.y}u`,
+            afterLabel:(c)=> (tips&&tips[c.dataIndex])?(REASON[tips[c.dataIndex].reason]||''):'' }}},
+            scales:baseScales()}});
+      }
+
+      function renderMeal(mode){
+        if(mealChart) mealChart.destroy();
+        let labels,carbs,prot;
+        if(mode==='week'){
+          const days=last7(); labels=days.map(wlabel);
+          carbs=days.map(dd=>sumBy(d.meals,'eaten_at','carbs_g',dd));
+          prot =days.map(dd=>sumBy(d.meals,'eaten_at','protein_g',dd));
+          document.getElementById('mealHint').textContent='Total de carbs e proteína por dia · últimos 7 dias.';
+        } else {
+          const it=d.meals.filter(x=>dayKey(x.eaten_at)===todayKey)
+            .sort((a,b)=>new Date(a.eaten_at)-new Date(b.eaten_at));
+          labels=it.map(x=>MEAL[x.meal_tag]||hm(x.eaten_at));
+          carbs=it.map(x=>x.carbs_g||0); prot=it.map(x=>x.protein_g||0);
+          document.getElementById('mealHint').textContent = it.length?'Refeições de hoje (g).':'Nenhuma refeição hoje ainda.';
+        }
+        mealChart=new Chart(mealCv,{type:'bar',
+          data:{labels,datasets:[
+            {label:'Carbs (g)',data:carbs,backgroundColor:AMBER,borderRadius:3,maxBarThickness:mode==='week'?18:16},
+            {label:'Proteína (g)',data:prot,backgroundColor:VIOLET,borderRadius:3,maxBarThickness:mode==='week'?18:16}]},
+          options:{maintainAspectRatio:false,plugins:{legend:{labels:{color:INK,boxWidth:10,usePointStyle:true}}},
+            scales:baseScales()}});
+      }
+
+      function wireSeg(id, fn){
+        const seg=document.getElementById(id);
+        seg.addEventListener('click',(e)=>{ const b=e.target.closest('button'); if(!b) return;
+          seg.querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); fn(b.dataset.m); });
+      }
+      wireSeg('humSeg', renderHum); wireSeg('mealSeg', renderMeal);
+      renderHum('day'); renderMeal('day');
 
       // recent unified log
       const ev=[

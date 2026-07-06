@@ -71,22 +71,22 @@ def seed() -> None:
             drift = DRIFT[offset]
             for h, m, tag, c, p, desc in MEALS:
                 ts = at(day, h, m)
-                if ts <= now:
+                if True:  # demo: seed full days incl. today so "Dia" view is complete
                     cur.execute("insert into meals (patient_id, eaten_at, carbs_g, protein_g, meal_tag, description) values (%s,%s,%s,%s,%s,%s)",
                                 (pid, ts, c, p, tag, desc)); n += 1
             for h, m, u, r in HUMALOG:
                 ts = at(day, h, m)
-                if ts <= now:
+                if True:  # demo: seed full days incl. today so "Dia" view is complete
                     cur.execute("insert into humalog_doses (patient_id, taken_at, units, reason) values (%s,%s,%s,%s)",
                                 (pid, ts, u, r)); n += 1
             for h, m, mg, ctx in GLUCOSE:
                 ts = at(day, h, m)
-                if ts <= now:
+                if True:  # demo: seed full days incl. today so "Dia" view is complete
                     cur.execute("insert into glucose_readings (patient_id, measured_at, mg_dl, context) values (%s,%s,%s,%s)",
                                 (pid, ts, mg + drift, ctx)); n += 1
             for h, m in COLIRIO:
                 ts = at(day, h, m)
-                if ts <= now:
+                if True:  # demo: seed full days incl. today so "Dia" view is complete
                     cur.execute("insert into colirio_uses (patient_id, used_at, eye, product) values (%s,%s,'ambos',%s)",
                                 (pid, ts, config.COLIRIO_PRODUCT)); n += 1
             cur.execute("insert into basal_doses (patient_id, taken_at, units, status) values (%s,%s,20,'taken')",
