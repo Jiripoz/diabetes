@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Diabetes — {{ patient }}</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+  <style>
+    :root { --bg:#0f1420; --card:#1a2130; --ink:#e8edf5; --muted:#8b97ab; --accent:#4ea1ff; --good:#3ddc97; --warn:#ffb454; --bad:#ff6b6b; }
+    * { box-sizing:border-box; }
+    body { margin:0; font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--ink); }
+    header { padding:20px 24px; border-bottom:1px solid #232c3d; }
+    header h1 { margin:0; font-size:20px; }
+    header .sub { color:var(--muted); font-size:13px; }
+    main { padding:24px; max-width:1100px; margin:0 auto; display:grid; gap:20px; }
+    .cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:14px; }
+    .card { background:var(--card); border:1px solid #232c3d; border-radius:12px; padding:16px; }
+    .card .k { color:var(--muted); font-size:12px; text-transform:uppercase; letter-spacing:.04em; }
+    .card .v { font-size:26px; font-weight:600; margin-top:4px; }
+    .chart-wrap { background:var(--card); border:1px solid #232c3d; border-radius:12px; padding:16px; }
+    table { width:100%; border-collapse:collapse; font-size:14px; }
+    th, td { text-align:left; padding:8px 10px; border-bottom:1px solid #232c3d; }
+    th { color:var(--muted); font-weight:500; }
+    .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
+    @media (max-width:720px){ .grid2 { grid-template-columns:1fr; } }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Diabetes — {{ patient }}</h1>
+    <div class="sub">Registros via Telegram · atualiza a cada carregamento</div>
+  </header>
+  <main>
+    <div class="cards" id="cards"></div>
+    <div class="chart-wrap"><canvas id="glucoseChart" height="90"></canvas></div>
+    <div class="grid2">
+      <div class="chart-wrap">
+        <h3 style="margin-top:0">Últimas doses Humalog</h3>
+        <table id="humalogTable"><thead><tr><th>Quando</th><th>Unidades</th><th>Refeição</th></tr></thead><tbody></tbody></table>
+      </div>
+      <div class="chart-wrap">
+        <h3 style="margin-top:0">Últimos eventos</h3>
+        <table id="eventsTable"><thead><tr><th>Quando</th><th>Tipo</th><th>Detalhe</th></tr></thead><tbody></tbody></table>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    const fmt = (iso) => new Date(iso).toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' });
+    const MEAL = { cafe:'Café', almoco:'Almoço', janta:'Janta', lanche:'Lanche', correcao:'Correção' };
+
+    async function load() {
+      const d = await (await fetch('/api/data')).json();
+
+      // KPI cards
+      const lastGl = d.glucose[0];
+      const todayHumalog = d.humalog.filter(x => sameDay(x.taken_at)).reduce((s,x)=>s+Number(x.units||0),0);
+      const lastBasal = d.basal[0];
+      const cards = [
+        ['Última glicemia', lastGl ? `${lastGl.mg_dl} mg/dL` : '—'],
+        ['Humalog hoje', `${todayHumalog}u`],
+        ['Basaglar', lastBasal ? `${fmt(lastBasal.taken_at)}` : '—'],
+        ['Colírio (último)', d.colirio[0] ? fmt(d.colirio[0].used_at) : '—'],
+      ];
+      document.getElementById('cards').innerHTML = cards.map(([k,v]) =>
+        `<div class="card"><div class="k">${k}</div><div class="v">${v}</div></div>`).join('');
+
+      // glucose chart (chronological)
+      const gl = [...d.glucose].reverse();
+      new Chart(document.getElementById('glucoseChart'), {
+        type:'line',
+        data:{ labels: gl.map(x=>fmt(x.measured_at)),
+          datasets:[{ label:'Glicemia (mg/dL)', data: gl.map(x=>x.mg_dl),
+            borderColor:'#4ea1ff', backgroundColor:'rgba(78,161,255,.15)', tension:.3, fill:true, pointRadius:3 }]},
+        options:{ plugins:{legend:{labels:{color:'#e8edf5'}}},
+          scales:{ x:{ticks:{color:'#8b97ab'},grid:{color:'#232c3d'}}, y:{ticks:{color:'#8b97ab'},grid:{color:'#232c3d'},suggestedMin:60,suggestedMax:260} } }
+      });
+
+      // humalog table
+      document.querySelector('#humalogTable tbody').innerHTML = d.humalog.slice(0,15).map(x =>
+        `<tr><td>${fmt(x.taken_at)}</td><td>${x.units}u</td><td>${MEAL[x.meal_tag]||x.meal_tag||'—'}</td></tr>`).join('');
+
+      // combined events
+      const events = [
+        ...d.basal.map(x=>({t:x.taken_at, k:'Basaglar', v:x.status==='taken'?'Tomada':'Pulada'})),
+        ...d.colirio.map(x=>({t:x.used_at, k:'Colírio', v:x.product||''})),
+        ...d.glucose.map(x=>({t:x.measured_at, k:'Glicemia', v:`${x.mg_dl} mg/dL`})),
+      ].sort((a,b)=> new Date(b.t)-new Date(a.t)).slice(0,15);
+      document.querySelector('#eventsTable tbody').innerHTML = events.map(e =>
+        `<tr><td>${fmt(e.t)}</td><td>${e.k}</td><td>${e.v}</td></tr>`).join('');
+    }
+    function sameDay(iso){ const a=new Date(iso), b=new Date(); return a.toDateString()===b.toDateString(); }
+    load();
+  </script>
+</body>
+</html>
