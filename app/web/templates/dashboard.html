@@ -154,6 +154,7 @@
     const rangeColor=(v)=> v<70?LOW : v>180?AMBER : MINT;
     Chart.defaults.font.family='"Hanken Grotesk", sans-serif';
     Chart.defaults.color=MUTED;
+    Chart.defaults.animation=false;  // instant, reliable render
 
     // shaded 70–180 band + rails, drawn behind the glucose line
     const band = { id:'band', beforeDatasetsDraw(c){
@@ -175,10 +176,10 @@
       for(let i=1;i<isos.length;i++){
         if(new Date(isos[i-1]).toDateString()===new Date(isos[i]).toDateString()) continue;
         const xp=(x.getPixelForValue(i-1)+x.getPixelForValue(i))/2;
-        ctx.strokeStyle='rgba(132,151,167,.45)'; ctx.setLineDash([2,4]); ctx.lineWidth=1;
+        ctx.strokeStyle='rgba(173,190,205,.85)'; ctx.setLineDash([7,4]); ctx.lineWidth=2;
         ctx.beginPath(); ctx.moveTo(xp,top); ctx.lineTo(xp,bottom); ctx.stroke();
-        ctx.setLineDash([]); ctx.fillStyle=MUTED; ctx.font='600 10px "Hanken Grotesk", sans-serif'; ctx.textAlign='left';
-        ctx.fillText(new Date(isos[i]).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'}), xp+4, top+9);
+        ctx.setLineDash([]); ctx.fillStyle='rgba(223,232,240,.95)'; ctx.font='700 11px "Hanken Grotesk", sans-serif'; ctx.textAlign='left';
+        ctx.fillText(new Date(isos[i]).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'}), xp+5, top+10);
       }
       ctx.restore();
     }}; }
