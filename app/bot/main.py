@@ -34,9 +34,11 @@ REASONS = [("🍽 Refeição", "refeicao"), ("🩹 Correção", "correcao")]
 
 
 def _authorized(update: Update) -> bool:
+    user = update.effective_user
+    if user is not None:
+        log.info("caller: id=%s username=%s name=%s", user.id, user.username, user.full_name)
     if config.ALLOWED_TELEGRAM_ID is None:
         return True
-    user = update.effective_user
     return user is not None and user.id == config.ALLOWED_TELEGRAM_ID
 
 
