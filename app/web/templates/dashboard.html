@@ -30,7 +30,7 @@
         linear-gradient(180deg,var(--bg-1),var(--bg-0));
       background-attachment:fixed; min-height:100dvh;
     }
-    .wrap { max-width:560px; margin:0 auto; padding:18px 16px 40px; }
+    .wrap { max-width:560px; margin:0 auto; padding:18px 16px 100px; }
     .top { display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; }
     .top .who { display:flex; align-items:center; gap:11px; }
     .badge { width:38px; height:38px; border-radius:12px; display:grid; place-items:center; font-size:18px;
@@ -81,6 +81,42 @@
     .tag.mint{background:var(--mint-soft);color:var(--mint);} .tag.sky{background:var(--sky-soft);color:var(--sky);}
     .tag.amber{background:var(--amber-soft);color:var(--amber);} .tag.violet{background:rgba(167,139,250,.14);color:var(--violet);}
     .muted{ color:var(--muted); }
+
+    /* views */
+    section[hidden] { display:none !important; }
+
+    /* daily nav */
+    .daynav { display:flex; align-items:center; justify-content:space-between; padding:12px 14px; }
+    .daynav .lbl { text-align:center; }
+    .daynav .lbl .wd { color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:.08em; }
+    .daynav .lbl .dt { font-family:"Space Grotesk",sans-serif; font-weight:600; font-size:16px; margin-top:2px; }
+    .iconbtn { width:36px; height:36px; border-radius:12px; border:1px solid var(--line); background:var(--surface);
+      color:var(--ink); font-size:18px; line-height:1; display:grid; place-items:center; cursor:pointer; }
+    .iconbtn:disabled { opacity:.32; cursor:not-allowed; }
+    .iconbtn:active:not(:disabled) { background:var(--surface-2); }
+    .empty { text-align:center; color:var(--muted); font-size:12.5px; padding:22px 6px; }
+
+    /* settings */
+    .timerow { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 0; border-bottom:1px solid var(--line); }
+    .timerow:last-child { border-bottom:0; }
+    .timerow .lbl { font-size:13px; }
+    .timeinput { background:var(--bg-1); border:1px solid var(--line); color:var(--ink); border-radius:10px;
+      padding:8px 10px; font:inherit; font-family:"IBM Plex Mono",monospace; font-size:14px; }
+    .savebtn { background:linear-gradient(140deg,var(--mint),#1f8f57); color:#08150d; border:0; border-radius:999px;
+      padding:11px 26px; font:inherit; font-weight:700; font-size:13.5px; cursor:pointer; }
+    .savebtn:active { transform:scale(.97); }
+
+    /* bottom tab bar */
+    .tabbar { position:fixed; left:0; right:0; bottom:0; display:flex;
+      background:rgba(11,15,20,.88); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px);
+      border-top:1px solid var(--line); padding:6px 8px calc(6px + env(safe-area-inset-bottom)); z-index:60; }
+    .tabbar button { flex:1; display:flex; flex-direction:column; align-items:center; gap:3px;
+      background:none; border:0; color:var(--muted); font:inherit; font-size:10.5px; font-weight:600;
+      padding:4px 4px; cursor:pointer; }
+    .tabbar .iconwrap { width:40px; height:26px; display:grid; place-items:center; border-radius:12px; transition:background .15s; }
+    .tabbar button.active { color:var(--mint); }
+    .tabbar button.active .iconwrap { background:var(--mint-soft); }
+    .tabbar svg { width:21px; height:21px; }
   </style>
 </head>
 <body>
@@ -95,63 +131,145 @@
       <div class="pill" id="lastseen">agora</div>
     </div>
 
-    <!-- Hero: current glucose + time in range -->
-    <div class="card">
-      <div class="hero">
-        <div>
-          <div class="reading"><span class="big" id="glNow">—</span><span class="unit">mg/dL</span></div>
-          <span class="status" id="glStatus"><span class="dot"></span><span>—</span></span>
+    <!-- ===================== HOME ===================== -->
+    <section id="view-home">
+      <!-- Hero: current glucose + time in range -->
+      <div class="card">
+        <div class="hero">
+          <div>
+            <div class="reading"><span class="big" id="glNow">—</span><span class="unit">mg/dL</span></div>
+            <span class="status" id="glStatus"><span class="dot"></span><span>—</span></span>
+          </div>
+          <div class="tir">
+            <div class="n" id="tirN">—</div>
+            <div class="l">no alvo</div>
+            <div class="tirbar"><i id="tirBar" style="width:0%"></i></div>
+          </div>
         </div>
-        <div class="tir">
-          <div class="n" id="tirN">—</div>
-          <div class="l">no alvo</div>
-          <div class="tirbar"><i id="tirBar" style="width:0%"></i></div>
+      </div>
+
+      <!-- quick stats -->
+      <div class="strip">
+        <div class="stat sky"><div class="v" id="sHum">—</div><div class="k">Humalog hoje</div></div>
+        <div class="stat amber"><div class="v" id="sCarb">—</div><div class="k">Carbs hoje</div></div>
+        <div class="stat violet"><div class="v" id="sProt">—</div><div class="k">Prot. hoje</div></div>
+        <div class="stat"><div class="v" id="sBasal">—</div><div class="k">Basaglar</div></div>
+      </div>
+
+      <!-- Glucose curve (signature) -->
+      <div class="card">
+        <h3><span class="dot" style="background:var(--mint)"></span> Glicemia</h3>
+        <p class="hint">Faixa alvo 70–180 sombreada · pontos coral=baixa, âmbar=alta.</p>
+        <div class="chartbox"><canvas id="glucoseChart"></canvas></div>
+      </div>
+
+      <!-- Humalog -->
+      <div class="card">
+        <div class="chead">
+          <h3><span class="dot" style="background:var(--sky)"></span> Humalog</h3>
+          <div class="seg" id="humSeg"><button data-m="day" class="on">Dia</button><button data-m="week">Semana</button></div>
+        </div>
+        <p class="hint" id="humHint">—</p>
+        <div class="chartbox"><canvas id="humalogChart"></canvas></div>
+      </div>
+
+      <!-- Meals macros -->
+      <div class="card">
+        <div class="chead">
+          <h3><span class="dot" style="background:var(--amber)"></span> Refeições</h3>
+          <div class="seg" id="mealSeg"><button data-m="day" class="on">Dia</button><button data-m="week">Semana</button></div>
+        </div>
+        <p class="hint" id="mealHint">—</p>
+        <div class="chartbox"><canvas id="mealsChart"></canvas></div>
+      </div>
+
+      <!-- recent log -->
+      <div class="card">
+        <h3>Registro recente</h3>
+        <p class="hint">&nbsp;</p>
+        <table id="logTable"><thead><tr><th>Quando</th><th>Evento</th><th>Detalhe</th></tr></thead><tbody></tbody></table>
+      </div>
+    </section>
+
+    <!-- ===================== DAILY ===================== -->
+    <section id="view-daily" hidden>
+      <div class="card daynav">
+        <button class="iconbtn" id="dayPrev" aria-label="Dia anterior">‹</button>
+        <div class="lbl">
+          <div class="wd" id="dayWd">—</div>
+          <div class="dt" id="dayDt">—</div>
+        </div>
+        <button class="iconbtn" id="dayNext" aria-label="Próximo dia">›</button>
+      </div>
+
+      <div class="strip">
+        <div class="stat"><div class="v" id="dTir">—</div><div class="k">No alvo</div></div>
+        <div class="stat sky"><div class="v" id="dHum">—</div><div class="k">Humalog</div></div>
+        <div class="stat amber"><div class="v" id="dCarb">—</div><div class="k">Carbs</div></div>
+        <div class="stat violet"><div class="v" id="dProt">—</div><div class="k">Proteína</div></div>
+      </div>
+
+      <div class="card" id="dayChartCard">
+        <h3><span class="dot" style="background:var(--mint)"></span> Glicemia do dia</h3>
+        <div class="chartbox" style="height:170px"><canvas id="dayGlucoseChart"></canvas></div>
+      </div>
+
+      <div class="card">
+        <h3>Linha do tempo</h3>
+        <p class="hint" id="dayHint">&nbsp;</p>
+        <table id="dayTable"><thead><tr><th>Hora</th><th>Evento</th><th>Detalhe</th></tr></thead><tbody></tbody></table>
+      </div>
+    </section>
+
+    <!-- ===================== SETTINGS ===================== -->
+    <section id="view-settings" hidden>
+      <div class="card">
+        <h3>🌙 Basaglar</h3>
+        <p class="hint">Horário do lembrete diário.</p>
+        <div class="timerow">
+          <span class="lbl">Lembrete</span>
+          <input type="time" class="timeinput" value="21:00">
         </div>
       </div>
-    </div>
 
-    <!-- quick stats -->
-    <div class="strip">
-      <div class="stat sky"><div class="v" id="sHum">—</div><div class="k">Humalog hoje</div></div>
-      <div class="stat amber"><div class="v" id="sCarb">—</div><div class="k">Carbs hoje</div></div>
-      <div class="stat violet"><div class="v" id="sProt">—</div><div class="k">Prot. hoje</div></div>
-      <div class="stat"><div class="v" id="sBasal">—</div><div class="k">Basaglar</div></div>
-    </div>
-
-    <!-- Glucose curve (signature) -->
-    <div class="card">
-      <h3><span class="dot" style="background:var(--mint)"></span> Glicemia</h3>
-      <p class="hint">Faixa alvo 70–180 sombreada · pontos coral=baixa, âmbar=alta.</p>
-      <div class="chartbox"><canvas id="glucoseChart"></canvas></div>
-    </div>
-
-    <!-- Humalog -->
-    <div class="card">
-      <div class="chead">
-        <h3><span class="dot" style="background:var(--sky)"></span> Humalog</h3>
-        <div class="seg" id="humSeg"><button data-m="day" class="on">Dia</button><button data-m="week">Semana</button></div>
+      <div class="card">
+        <h3>👁 Colírio</h3>
+        <p class="hint">Horários dos lembretes ao longo do dia.</p>
+        <div class="timerow"><span class="lbl">1º</span><input type="time" class="timeinput" value="08:00"></div>
+        <div class="timerow"><span class="lbl">2º</span><input type="time" class="timeinput" value="14:00"></div>
+        <div class="timerow"><span class="lbl">3º</span><input type="time" class="timeinput" value="20:00"></div>
       </div>
-      <p class="hint" id="humHint">—</p>
-      <div class="chartbox"><canvas id="humalogChart"></canvas></div>
-    </div>
 
-    <!-- Meals macros -->
-    <div class="card">
-      <div class="chead">
-        <h3><span class="dot" style="background:var(--amber)"></span> Refeições</h3>
-        <div class="seg" id="mealSeg"><button data-m="day" class="on">Dia</button><button data-m="week">Semana</button></div>
+      <div class="card" style="text-align:center;">
+        <button class="savebtn" id="settingsSave">Salvar</button>
+        <p class="hint" id="settingsNote" style="margin-top:12px;">Em breve — ainda não conectado ao bot.</p>
       </div>
-      <p class="hint" id="mealHint">—</p>
-      <div class="chartbox"><canvas id="mealsChart"></canvas></div>
-    </div>
-
-    <!-- recent log -->
-    <div class="card">
-      <h3>Registro recente</h3>
-      <p class="hint">&nbsp;</p>
-      <table id="logTable"><thead><tr><th>Quando</th><th>Evento</th><th>Detalhe</th></tr></thead><tbody></tbody></table>
-    </div>
+    </section>
   </div>
+
+  <!-- bottom tab bar -->
+  <nav class="tabbar">
+    <button data-view="daily">
+      <span class="iconwrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18"/><path d="M8 3v4"/><path d="M16 3v4"/>
+        <circle cx="12" cy="15" r="1.8" fill="currentColor" stroke="none"/>
+      </svg></span>
+      Diário
+    </button>
+    <button data-view="home" class="active">
+      <span class="iconwrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 11.5 12 4l9 7.5"/><path d="M5 10v9a1 1 0 0 0 1 1h3v-6h6v6h3a1 1 0 0 0 1-1v-9"/>
+      </svg></span>
+      Início
+    </button>
+    <button data-view="settings">
+      <span class="iconwrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="3"/>
+        <path d="M19.4 13a7.97 7.97 0 0 0 0-2l2-1.2-2-3.4-2.3.9a8 8 0 0 0-1.7-1L15 3h-4l-.4 2.3a8 8 0 0 0-1.7 1l-2.3-.9-2 3.4L6.6 11a7.97 7.97 0 0 0 0 2l-2 1.2 2 3.4 2.3-.9a8 8 0 0 0 1.7 1L11 21h4l.4-2.3a8 8 0 0 0 1.7-1l2.3.9 2-3.4-2-1.2Z"/>
+      </svg></span>
+      Ajustes
+    </button>
+  </nav>
 
   <script>
     const C = getComputedStyle(document.documentElement), col = (n)=>C.getPropertyValue(n).trim();
@@ -161,7 +279,9 @@
     const hm =(iso)=>new Date(iso).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
     const MEAL={cafe:'Café',almoco:'Almoço',janta:'Janta',lanche:'Lanche'};
     const REASON={refeicao:'Refeição',correcao:'Correção',outro:'Outro'};
-    const sameDay=(a,b)=>new Date(a).toDateString()===new Date(b).toDateString();
+    const CONTEXT={jejum:'Jejum',pre_refeicao:'Pré-refeição',pos_refeicao:'Pós-refeição',dormir:'Antes de dormir',outro:'Outro'};
+    const dayKey=(iso)=>new Date(iso).toDateString();
+    const sameDay=(a,b)=>dayKey(a)===dayKey(b);
     const rangeColor=(v)=> v<70?LOW : v>180?AMBER : MINT;
     Chart.defaults.font.family='"Hanken Grotesk", sans-serif';
     Chart.defaults.color=MUTED;
@@ -195,8 +315,9 @@
       ctx.restore();
     }}; }
 
-    async function load(){
-      const d = await (await fetch('/api/data')).json();
+    let DATA = null;
+
+    function renderHome(d){
       const ref = d.glucose[0]?.measured_at || new Date().toISOString();
 
       // hero
@@ -241,7 +362,6 @@
 
       // ---- Humalog & Refeições: Dia (hoje, evento a evento) / Semana (total por dia) ----
       const todayKey = new Date().toDateString();
-      const dayKey = (iso)=>new Date(iso).toDateString();
       const last7 = ()=>{ const days=[], base=new Date(); base.setHours(0,0,0,0);
         for(let i=6;i>=0;i--){ const dd=new Date(base); dd.setDate(base.getDate()-i); days.push(dd); } return days; };
       const wlabel = (dd)=> dd.toDateString()===todayKey ? 'Hoje'
@@ -314,6 +434,105 @@
       ].sort((a,b)=>new Date(b.t)-new Date(a.t)).slice(0,16);
       document.querySelector('#logTable tbody').innerHTML = ev.map(e=>
         `<tr><td class="n muted">${fmt(e.t)}</td><td><span class="tag ${e.c}">${e.k}</span></td><td>${e.v}</td></tr>`).join('');
+    }
+
+    // ================= DAILY =================
+    let selectedDay = new Date(); selectedDay.setHours(0,0,0,0);
+    let dayChart = null;
+
+    function dayStats(d, day){
+      const key=day.toDateString();
+      const gl = d.glucose.filter(x=>dayKey(x.measured_at)===key);
+      const hum = d.humalog.filter(x=>dayKey(x.taken_at)===key).reduce((s,x)=>s+Number(x.units||0),0);
+      const carb = d.meals.filter(x=>dayKey(x.eaten_at)===key).reduce((s,x)=>s+Number(x.carbs_g||0),0);
+      const prot = d.meals.filter(x=>dayKey(x.eaten_at)===key).reduce((s,x)=>s+Number(x.protein_g||0),0);
+      const inR = gl.filter(x=>x.mg_dl>=70&&x.mg_dl<=180).length;
+      const tir = gl.length?Math.round(100*inR/gl.length):null;
+      return {gl,hum,carb,prot,tir};
+    }
+
+    function buildDayEvents(d, day){
+      const key = day.toDateString();
+      return [
+        ...d.glucose.filter(x=>dayKey(x.measured_at)===key).map(x=>({t:x.measured_at,k:'Glicemia',c:'mint',
+          v:`${x.mg_dl} mg/dL${x.context?' · '+(CONTEXT[x.context]||x.context):''}${x.note?' · '+x.note:''}`})),
+        ...d.humalog.filter(x=>dayKey(x.taken_at)===key).map(x=>({t:x.taken_at,k:'Humalog',c:'sky',
+          v:`${x.units}u · ${REASON[x.reason]||'—'}${x.note?' · '+x.note:''}`})),
+        ...d.meals.filter(x=>dayKey(x.eaten_at)===key).map(x=>({t:x.eaten_at,k:'Refeição',c:'amber',
+          v:`${MEAL[x.meal_tag]||'Refeição'} · ${x.carbs_g??'–'}c/${x.protein_g??'–'}p${x.description?' · '+x.description:''}`})),
+        ...d.basal.filter(x=>dayKey(x.taken_at)===key).map(x=>({t:x.taken_at,k:'Basaglar',c:'violet',
+          v:x.status==='taken'?'Tomada':'Pulada'})),
+        ...d.colirio.filter(x=>dayKey(x.used_at)===key).map(x=>({t:x.used_at,k:'Colírio',c:'mint',v:x.product||''})),
+      ].sort((a,b)=>new Date(a.t)-new Date(b.t));
+    }
+
+    function renderDaily(){
+      const d = DATA; if(!d) return;
+      const today = new Date(); today.setHours(0,0,0,0);
+      const isToday = selectedDay.getTime()===today.getTime();
+
+      document.getElementById('dayWd').textContent = isToday?'Hoje':selectedDay.toLocaleDateString('pt-BR',{weekday:'long'});
+      document.getElementById('dayDt').textContent = selectedDay.toLocaleDateString('pt-BR',{day:'2-digit',month:'long'});
+      document.getElementById('dayNext').disabled = isToday;
+
+      const st = dayStats(d, selectedDay);
+      document.getElementById('dTir').textContent = st.tir==null?'—':st.tir+'%';
+      document.getElementById('dHum').textContent = st.hum+'u';
+      document.getElementById('dCarb').textContent = st.carb+'g';
+      document.getElementById('dProt').textContent = st.prot+'g';
+
+      if(dayChart){ dayChart.destroy(); dayChart=null; }
+      const chartCard = document.getElementById('dayChartCard');
+      const gl=[...st.gl].sort((a,b)=>new Date(a.measured_at)-new Date(b.measured_at));
+      if(gl.length){
+        chartCard.style.display='';
+        dayChart=new Chart(document.getElementById('dayGlucoseChart'),{type:'line', plugins:[band],
+          data:{labels:gl.map(x=>hm(x.measured_at)),datasets:[{data:gl.map(x=>x.mg_dl),
+            borderColor:MINT,borderWidth:2.5,tension:.4,fill:false,pointRadius:3,pointHoverRadius:5,
+            pointBackgroundColor:gl.map(x=>rangeColor(x.mg_dl)),pointBorderColor:'transparent'}]},
+          options:{maintainAspectRatio:false,plugins:{legend:{display:false}},
+            scales:{...baseScales(),y:{ticks:{color:MUTED},grid:{color:LINE},suggestedMin:50,suggestedMax:260}}}});
+      } else {
+        chartCard.style.display='none';
+      }
+
+      const evs = buildDayEvents(d, selectedDay);
+      document.getElementById('dayHint').textContent = evs.length ? `${evs.length} registro(s) neste dia.` : 'Nenhum registro neste dia.';
+      const tbody = document.querySelector('#dayTable tbody');
+      tbody.innerHTML = evs.length
+        ? evs.map(e=>`<tr><td class="n muted">${hm(e.t)}</td><td><span class="tag ${e.c}">${e.k}</span></td><td>${e.v}</td></tr>`).join('')
+        : `<tr><td colspan="3" class="empty">Nenhum registro neste dia.</td></tr>`;
+    }
+
+    document.getElementById('dayPrev').addEventListener('click',()=>{
+      selectedDay.setDate(selectedDay.getDate()-1); renderDaily();
+    });
+    document.getElementById('dayNext').addEventListener('click',()=>{
+      const t=new Date(); t.setHours(0,0,0,0);
+      if(selectedDay.getTime()<t.getTime()){ selectedDay.setDate(selectedDay.getDate()+1); renderDaily(); }
+    });
+
+    // ================= SETTINGS =================
+    document.getElementById('settingsSave').addEventListener('click',()=>{
+      const note=document.getElementById('settingsNote');
+      note.textContent='Em breve — ainda não conectado ao bot.';
+      note.style.color=AMBER;
+    });
+
+    // ================= TAB BAR =================
+    const VIEWS=['home','daily','settings'];
+    function showView(name){
+      VIEWS.forEach(v=>{ document.getElementById('view-'+v).hidden = v!==name; });
+      document.querySelectorAll('.tabbar button').forEach(b=>b.classList.toggle('active', b.dataset.view===name));
+      if(name==='daily') renderDaily();
+    }
+    document.querySelectorAll('.tabbar button').forEach(b=>b.addEventListener('click',()=>showView(b.dataset.view)));
+
+    // ================= BOOT =================
+    async function load(){
+      DATA = await (await fetch('/api/data')).json();
+      renderHome(DATA);
+      if(!document.getElementById('view-daily').hidden) renderDaily();
     }
     load();
   </script>
