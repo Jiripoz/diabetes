@@ -65,7 +65,7 @@
     let sb = null;
     try {
       if (!"{{ supabase_url }}" || !"{{ supabase_anon_key }}") throw new Error('missing config');
-      sb = supabase.createClient("{{ supabase_url }}", "{{ supabase_anon_key }}");
+      sb = supabase.createClient("{{ supabase_url }}", "{{ supabase_anon_key }}", { auth: { flowType: 'pkce' } });
     } catch (e) {
       showErr('Login ainda não configurado (Supabase). Avise o administrador.');
       btn.disabled = true;

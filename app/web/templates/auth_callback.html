@@ -31,7 +31,7 @@
 
   <script>
     const { createClient } = supabase;
-    const sb = createClient("{{ supabase_url }}", "{{ supabase_anon_key }}");
+    const sb = createClient("{{ supabase_url }}", "{{ supabase_anon_key }}", { auth: { flowType: 'pkce' } });
 
     function showError(msg) {
       document.getElementById('box').innerHTML =
