@@ -153,7 +153,7 @@
         <div class="stat sky"><div class="v" id="sHum">—</div><div class="k">Humalog hoje</div></div>
         <div class="stat amber"><div class="v" id="sCarb">—</div><div class="k">Carbs hoje</div></div>
         <div class="stat violet"><div class="v" id="sProt">—</div><div class="k">Prot. hoje</div></div>
-        <div class="stat"><div class="v" id="sBasal">—</div><div class="k">Basaglar</div></div>
+        <div class="stat"><div class="v" id="sBasal" style="font-size:14px;line-height:1.2">—</div><div class="k">Basaglar</div></div>
       </div>
 
       <!-- Glucose curve (signature) -->
@@ -181,13 +181,6 @@
         </div>
         <p class="hint" id="mealHint">—</p>
         <div class="chartbox"><canvas id="mealsChart"></canvas></div>
-      </div>
-
-      <!-- recent log -->
-      <div class="card">
-        <h3>Registro recente</h3>
-        <p class="hint">&nbsp;</p>
-        <table id="logTable"><thead><tr><th>Quando</th><th>Evento</th><th>Detalhe</th></tr></thead><tbody></tbody></table>
       </div>
     </section>
 
@@ -349,7 +342,10 @@
       document.getElementById('sHum').textContent=humToday+'u';
       document.getElementById('sCarb').textContent=carbToday+'g';
       document.getElementById('sProt').textContent=protToday+'g';
-      document.getElementById('sBasal').textContent=d.basal[0]?hm(d.basal[0].taken_at):'—';
+      const lastBasal=d.basal[0];
+      document.getElementById('sBasal').innerHTML = lastBasal
+        ? `${new Date(lastBasal.taken_at).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'})}<br>${hm(lastBasal.taken_at)}`
+        : '—';
 
       // glucose curve
       const gl=[...d.glucose].reverse();
@@ -423,17 +419,6 @@
       }
       wireSeg('humSeg', renderHum); wireSeg('mealSeg', renderMeal);
       renderHum('day'); renderMeal('day');
-
-      // recent unified log
-      const ev=[
-        ...d.glucose.map(x=>({t:x.measured_at,k:'Glicemia',c:'mint',v:`${x.mg_dl} mg/dL`})),
-        ...d.humalog.map(x=>({t:x.taken_at,k:'Humalog',c:'sky',v:`${x.units}u · ${REASON[x.reason]||''}`})),
-        ...d.meals.map(x=>({t:x.eaten_at,k:'Refeição',c:'amber',v:`${MEAL[x.meal_tag]||''} · ${x.carbs_g??'–'}c/${x.protein_g??'–'}p`})),
-        ...d.basal.map(x=>({t:x.taken_at,k:'Basaglar',c:'violet',v:x.status==='taken'?'Tomada':'Pulada'})),
-        ...d.colirio.map(x=>({t:x.used_at,k:'Colírio',c:'mint',v:x.product||''})),
-      ].sort((a,b)=>new Date(b.t)-new Date(a.t)).slice(0,16);
-      document.querySelector('#logTable tbody').innerHTML = ev.map(e=>
-        `<tr><td class="n muted">${fmt(e.t)}</td><td><span class="tag ${e.c}">${e.k}</span></td><td>${e.v}</td></tr>`).join('');
     }
 
     // ================= DAILY =================
