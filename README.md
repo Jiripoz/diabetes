@@ -39,4 +39,13 @@ uvicorn app.web.main:app --reload              # dashboard at http://localhost:8
 4. The `web` service gets a public URL (the dashboard). The `bot` runs as a worker.
 
 ## Environment variables
-See `.env.example`. Secrets (`SUPABASE_SERVICE_ROLE_KEY`, `TELEGRAM_BOT_TOKEN`) are server-side only — never exposed to the browser.
+See `.env.example`. `TELEGRAM_BOT_TOKEN` and `SESSION_SECRET` are server-side only — never exposed to the browser.
+`SUPABASE_ANON_KEY` is the public anon key and is safe to expose client-side.
+
+## Dashboard login (Google SSO via Supabase)
+The dashboard requires Google sign-in through Supabase Auth, restricted to the emails in
+`ALLOWED_EMAILS`. One-time setup in the Supabase dashboard:
+1. Authentication → Providers → enable **Google**, with a Client ID/Secret from a Google Cloud
+   OAuth consent screen (Web application type).
+2. Authentication → URL Configuration → add the dashboard's `/auth/callback` URL (both the
+   Railway URL and `http://localhost:8000` for local dev) to **Redirect URLs**.

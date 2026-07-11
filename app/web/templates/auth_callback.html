@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0F141A" />
+  <title>Glaubot · entrando…</title>
+  <script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root { --bg-0:#0B0F14; --bg-1:#0F141A; --ink:#E9EFF3; --muted:#8497A7; --mint:#3DDC84; --low:#FF5C7A; --low-soft:rgba(255,92,122,.14); }
+    * { box-sizing:border-box; }
+    body { margin:0; min-height:100dvh; display:flex; align-items:center; justify-content:center;
+      color:var(--ink); font-family:"Hanken Grotesk",system-ui,sans-serif;
+      background:linear-gradient(180deg,var(--bg-1),var(--bg-0)); padding:20px; text-align:center; }
+    .spin { width:26px; height:26px; border-radius:50%; border:3px solid rgba(61,220,132,.25);
+      border-top-color:var(--mint); margin:0 auto 16px; animation:sp .8s linear infinite; }
+    @keyframes sp { to { transform:rotate(360deg); } }
+    p { color:var(--muted); font-size:13.5px; margin:0; }
+    .err { color:var(--low); background:var(--low-soft); border-radius:10px; padding:12px 16px; font-size:13px; }
+    a { color:var(--mint); }
+  </style>
+</head>
+<body>
+  <div id="box">
+    <div class="spin"></div>
+    <p>Entrando…</p>
+  </div>
+
+  <script>
+    const { createClient } = supabase;
+    const sb = createClient("{{ supabase_url }}", "{{ supabase_anon_key }}");
+
+    function showError(msg) {
+      document.getElementById('box').innerHTML =
+        `<p class="err">${msg}</p><p style="margin-top:14px;"><a href="/login">Voltar</a></p>`;
+    }
+
+    (async () => {
+      const code = new URLSearchParams(window.location.search).get('code');
+      if (!code) { showError('Código de autenticação ausente.'); return; }
+
+      const { data, error } = await sb.auth.exchangeCodeForSession(code);
+      if (error || !data.session) { showError(error?.message || 'Falha ao autenticar.'); return; }
+
+      const resp = await fetch('/auth/callback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ access_token: data.session.access_token }),
+      });
+
+      if (resp.ok) {
+        window.location.href = '/';
+      } else {
+        const j = await resp.json().catch(() => ({}));
+        showError(j.detail || 'Acesso não autorizado.');
+      }
+    })();
+  </script>
+</body>
+</html>
