@@ -12,7 +12,20 @@ def _times(raw: str) -> list[str]:
 
 
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
-ALLOWED_TELEGRAM_ID = int(os.environ["ALLOWED_TELEGRAM_ID"]) if os.environ.get("ALLOWED_TELEGRAM_ID") else None
+
+# Only these Telegram numeric user ids may use the bot. Empty = open (POC default).
+ALLOWED_TELEGRAM_IDS = {
+    int(i) for i in os.environ.get("ALLOWED_TELEGRAM_IDS", "").split(",") if i.strip()
+}
+
+# Who proactive reminders (Basaglar, colírio) are sent to — the patient, not every
+# allowed user. Falls back to the sole allowed id if only one is configured.
+_patient_id_raw = os.environ.get("PATIENT_TELEGRAM_ID", "")
+PATIENT_TELEGRAM_ID = (
+    int(_patient_id_raw)
+    if _patient_id_raw
+    else (next(iter(ALLOWED_TELEGRAM_IDS)) if len(ALLOWED_TELEGRAM_IDS) == 1 else None)
+)
 
 # App data lives in Railway Postgres. Locally use the public connection string;
 # on Railway the internal DATABASE_URL is injected automatically.

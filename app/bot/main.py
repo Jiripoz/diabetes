@@ -34,12 +34,14 @@ REASONS = [("🍽 Refeição", "refeicao"), ("🩹 Correção", "correcao")]
 
 
 def _authorized(update: Update) -> bool:
-    user = update.effective_user
-    if user is not None:
-        log.info("caller: id=%s username=%s name=%s", user.id, user.username, user.full_name)
-    if config.ALLOWED_TELEGRAM_ID is None:
+    if not config.ALLOWED_TELEGRAM_IDS:
         return True
-    return user is not None and user.id == config.ALLOWED_TELEGRAM_ID
+    user = update.effective_user
+    if user is not None and user.id in config.ALLOWED_TELEGRAM_IDS:
+        return True
+    if user is not None:
+        log.warning("rejected caller: id=%s username=%s name=%s", user.id, user.username, user.full_name)
+    return False
 
 
 def _st(chat_id: int) -> dict:
@@ -226,17 +228,17 @@ async def on_text(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
 # ---------- reminders ----------
 
 async def remind_basaglar(ctx: ContextTypes.DEFAULT_TYPE) -> None:
-    if config.ALLOWED_TELEGRAM_ID:
+    if config.PATIENT_TELEGRAM_ID:
         await ctx.bot.send_message(
-            config.ALLOWED_TELEGRAM_ID, "🌙 Hora da Basaglar (21h). Já tomou?",
+            config.PATIENT_TELEGRAM_ID, "🌙 Hora da Basaglar (21h). Já tomou?",
             reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("✅ Tomei", callback_data="basal:taken")]]),
         )
 
 
 async def remind_colirio(ctx: ContextTypes.DEFAULT_TYPE) -> None:
-    if config.ALLOWED_TELEGRAM_ID:
+    if config.PATIENT_TELEGRAM_ID:
         await ctx.bot.send_message(
-            config.ALLOWED_TELEGRAM_ID, f"👁 Hora do colírio ({config.COLIRIO_PRODUCT}).",
+            config.PATIENT_TELEGRAM_ID, f"👁 Hora do colírio ({config.COLIRIO_PRODUCT}).",
             reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("✅ Apliquei", callback_data="colirio:ambos")]]),
         )
 
